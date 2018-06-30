@@ -1,0 +1,160 @@
+C51 COMPILER V9.56.0.0   X2B_MP                                                            04/29/2018 13:16:11 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE X2B_MP
+OBJECT MODULE PLACED IN .\Objects\X2B_MP.obj
+COMPILER INVOKED BY: D:\hardware\Keil_v5\C51\BIN\C51.EXE ..\src\X2B_MP.C LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(..\inc) D
+                    -EBUG OBJECTEXTEND PRINT(.\Listings\X2B_MP.lst) TABS(2) OBJECT(.\Objects\X2B_MP.obj)
+
+line level    source
+
+   1          #include "IO.h"
+   2          #include "UART1.h"  
+   3          #include "commands.h"
+   4          #include "delay.h"
+   5          
+   6          #include <stdlib.h> 
+   7          #include <stdio.h>
+   8          #include <string.h>
+   9          
+  10          /****************串口数据变量**************************/
+  11          extern u8  UART1_Buffer[100];             //缓冲区
+  12          extern u8  UART1_Count;                   //接收下标
+  13          extern u8  UART1_Flag;                    //接收数据完成标志
+  14          
+  15          u8 BoardTestFlag=0;
+  16          u8 IoTestFlag=0;
+  17          
+  18          
+  19          void main(void)
+  20          { 
+  21   1        u32 BlinkDelay=0;
+  22   1        CLK_DIV=0x00;                           //工作频率设置 
+  23   1        P4SW=0xFF;                              //P4口设为IO
+  24   1        P4M0=0x10;                              //P45 LED推挽输出
+  25   1        
+  26   1        P1=0xFF;P2=0xFF;P3=0xFF;P4=0xFF;        //VHUB-VUSB       DUT供电线VBUS闭合
+  27   1                    
+  28   1        OUTPUT16=0;                             //HUBGND1-USBGND2 DUT供VGND闭合
+  29   1        OUTPUT15=1;                             //按键气缸进去
+  30   1        
+  31   1        OUTPUT1=1;OUTPUT2=0;                    //P2左边爪子闭合
+  32   1        OUTPUT3=1;OUTPUT4=0;                    //P2右边爪子闭合
+  33   1        
+  34   1        OUTPUT5=1;OUTPUT6=0;                    //P3左边爪子闭合
+  35   1        OUTPUT7=1;OUTPUT8=0;                    //P3右边爪子闭合
+  36   1        
+  37   1        EA=0;                                   //关总中断    
+  38   1        InitUART1();                            //串口1初始化     115200（22.1184MHZ）  
+  39   1        EA=1;                                   //开总中断
+  40   1      
+  41   1        UART1_SendStr("Fixture Reset OK\n");    //初始化完成提示
+  42   1        UART1_SendStr(">>\n");                  //格式
+  43   1        while(1)
+  44   1        {
+  45   2          if(UART1_Flag==1)                                       //串口中断中接收到有效数据后
+  46   2          {
+  47   3            ProcessCommand((char *)UART1_Buffer);                 //命令解析
+  48   3            UART1_SendStr(">>\n");                                //提示符
+  49   3            UART1_Count=0;                                        //下标清零，数据接收从UART1_Buffer[0]开始
+  50   3            UART1_Flag=0;                                 
+  51   3          }
+  52   2          if(BoardTestFlag) BoardTest();
+  53   2          if(IoTestFlag)    IoTest();
+  54   2          
+C51 COMPILER V9.56.0.0   X2B_MP                                                            04/29/2018 13:16:11 PAGE 2   
+
+  55   2          if(BlinkDelay++>25000) 
+  56   2          {
+  57   3            BlinkDelay=0;SYS_LED=!SYS_LED;    
+  58   3          }
+  59   2      
+  60   2        }
+  61   1      }
+  62          
+  63          void IoTest(void)
+  64          {
+  65   1      //  if(INPUT1==0)   OUTPUT1=0; else OUTPUT1=1;
+  66   1      //  if(INPUT2==0)   OUTPUT2=0; else OUTPUT2=1;
+  67   1      //  if(INPUT3==0)   OUTPUT3=0; else OUTPUT3=1;
+  68   1      //  if(INPUT4==0)   OUTPUT4=0; else OUTPUT4=1;
+  69   1      //  if(INPUT5==0)   OUTPUT5=0; else OUTPUT5=1;
+  70   1      //  if(INPUT6==0)   OUTPUT6=0; else OUTPUT6=1;
+  71   1      //  if(INPUT7==0)   OUTPUT7=0; else OUTPUT7=1;
+  72   1      //  if(INPUT8==0)   OUTPUT8=0; else OUTPUT8=1;
+  73   1      //  if(INPUT9==0)   OUTPUT9=0; else OUTPUT9=1;
+  74   1      //  if(INPUT10==0)  OUTPUT10=0; else OUTPUT10=1;
+  75   1      //  if(INPUT11==0)  OUTPUT11=0; else OUTPUT11=1;
+  76   1      //  if(INPUT12==0)  OUTPUT12=0; else OUTPUT12=1;
+  77   1      //  if(INPUT13==0)  OUTPUT13=0; else OUTPUT13=1;
+  78   1      //  if(INPUT14==0)  OUTPUT14=0; else OUTPUT14=1;
+  79   1      //  if(INPUT15==0)  OUTPUT15=0; else OUTPUT15=1;
+  80   1      //  if(INPUT16==0)  OUTPUT16=0; else OUTPUT16=1;  
+  81   1        
+  82   1        INPUT1=1;INPUT3=1;INPUT5=1;INPUT7=1;INPUT9=1;INPUT11=1;INPUT13=1;INPUT15=1;
+  83   1        INPUT2=0;INPUT4=0;INPUT6=0;INPUT8=0;INPUT10=0;INPUT12=0;INPUT14=0;INPUT16=0;
+  84   1        OUTPUT1=1;OUTPUT3=1;OUTPUT5=1;OUTPUT7=1;OUTPUT9=1;OUTPUT11=1;OUTPUT13=1;OUTPUT15=1;
+  85   1        OUTPUT2=0;OUTPUT4=0;OUTPUT6=0;OUTPUT8=0;OUTPUT10=0;OUTPUT12=0;OUTPUT14=0;OUTPUT16=0;
+  86   1        delay_ms(500);
+  87   1        INPUT1=0;INPUT3=0;INPUT5=0;INPUT7=0;INPUT9=0;INPUT11=0;INPUT13=0;INPUT15=0;
+  88   1        INPUT2=1;INPUT4=1;INPUT6=1;INPUT8=1;INPUT10=1;INPUT12=1;INPUT14=1;INPUT16=1;
+  89   1        OUTPUT1=0;OUTPUT3=0;OUTPUT5=0;OUTPUT7=0;OUTPUT9=0;OUTPUT11=0;OUTPUT13=0;OUTPUT15=0;
+  90   1        OUTPUT2=1;OUTPUT4=1;OUTPUT6=1;OUTPUT8=1;OUTPUT10=1;OUTPUT12=1;OUTPUT14=1;OUTPUT16=1;
+  91   1        delay_ms(500);
+  92   1      }
+  93          
+  94          void BoardTest(void)
+  95          {
+  96   1        INPUT1=0;OUTPUT1=0;delay_ms(500);INPUT1=1;OUTPUT1=1;
+  97   1        INPUT2=0;OUTPUT2=0;delay_ms(500);INPUT2=1;OUTPUT2=1;
+  98   1        INPUT3=0;OUTPUT3=0;delay_ms(500);INPUT3=1;OUTPUT3=1;
+  99   1        INPUT4=0;OUTPUT4=0;delay_ms(500);INPUT4=1;OUTPUT4=1;
+ 100   1        INPUT5=0;OUTPUT5=0;delay_ms(500);INPUT5=1;OUTPUT5=1;
+ 101   1        INPUT6=0;OUTPUT6=0;delay_ms(500);INPUT6=1;OUTPUT6=1;
+ 102   1        INPUT7=0;OUTPUT7=0;delay_ms(500);INPUT7=1;OUTPUT7=1;
+ 103   1        INPUT8=0;OUTPUT8=0;delay_ms(500);INPUT8=1;OUTPUT8=1;
+ 104   1        INPUT9=0;OUTPUT9=0;delay_ms(500);INPUT9=1;OUTPUT9=1;
+ 105   1        INPUT10=0;OUTPUT10=0;delay_ms(500);INPUT10=1;OUTPUT10=1;
+ 106   1        INPUT11=0;OUTPUT11=0;delay_ms(500);INPUT11=1;OUTPUT11=1;
+ 107   1        INPUT12=0;OUTPUT12=0;delay_ms(500);INPUT12=1;OUTPUT12=1;
+ 108   1        INPUT13=0;OUTPUT13=0;delay_ms(500);INPUT13=1;OUTPUT13=1;
+ 109   1        INPUT14=0;OUTPUT14=0;delay_ms(500);INPUT14=1;OUTPUT14=1;
+ 110   1        INPUT15=0;OUTPUT15=0;delay_ms(500);INPUT15=1;OUTPUT15=1;
+ 111   1        INPUT16=0;OUTPUT16=0;delay_ms(500);INPUT16=1;OUTPUT16=1;
+ 112   1      }
+ 113          
+ 114          
+ 115          
+ 116          
+C51 COMPILER V9.56.0.0   X2B_MP                                                            04/29/2018 13:16:11 PAGE 3   
+
+ 117          
+ 118          
+ 119          
+ 120          
+ 121          
+ 122          
+ 123          
+ 124          
+ 125          
+ 126          
+ 127          
+ 128          
+ 129          
+ 130          
+ 131          
+ 132          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    539    ----
+   CONSTANT SIZE    =     22    ----
+   XDATA SIZE       =      2       2
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

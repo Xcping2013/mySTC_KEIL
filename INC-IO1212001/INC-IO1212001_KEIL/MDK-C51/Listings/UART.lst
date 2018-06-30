@@ -1,0 +1,181 @@
+C51 COMPILER V9.56.0.0   UART                                                              04/25/2018 14:47:16 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE UART
+OBJECT MODULE PLACED IN .\Objects\UART.obj
+COMPILER INVOKED BY: D:\hardware\Keil_v5\C51\BIN\C51.EXE ..\Src\UART.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(..\Inc;..\U
+                    -ser) DEBUG OBJECTEXTEND PRINT(.\Listings\UART.lst) TABS(2) OBJECT(.\Objects\UART.obj)
+
+line level    source
+
+   1          /**
+   2            \file     UART.c
+   3            \author   Xcping2016
+   4            \version  1.00
+   5          
+   6            \brief    
+   7          
+   8            This file contains the major function which does all necessary for UART1.
+   9          */
+  10          #include "main.h"
+  11          #include "UART.h"
+  12          #include "stdarg.h"
+  13          #include "stdio.h"  
+  14          
+  15          u8  USART_RX_BUF[USART_REC_LEN];  
+  16          u16 USART_RX_STA=0;    
+  17          
+  18          bit busy;
+  19          
+  20          /************************************************************
+  21                     uart初始化 
+  22          *************************************************************/
+  23          void InitUART(void)   
+  24          {
+  25   1        PCON &= 0x7F;   //波特率不倍速
+  26   1        SCON = 0x50;    //8位数据,可变波特率
+  27   1        AUXR |= 0x04;   //独立波特率发生器时钟为Fosc,即1T
+  28   1        
+  29   1        IPH=0x10;       //串口中断较高优先级
+  30   1        
+  31   1        #if (HSE_USED==HSE_11MHZ)       //@11.0592MHz
+  32   1        {
+  33   2          #if (BR_USED==BR_9600)
+                    BRT = 0xDC;                 //设定独立波特率发生器重装值
+                  #elif (BR_USED==BR_115200)
+  36   2            BRT = 0xFD;
+  37   2          #elif (BR_USED==BR_57600)
+                    BRT = 0xFA;
+                  #endif
+  40   2        }
+  41   1        #elif (HSE_USED==HSE_12MHZ)       //
+                {
+                  #if (BR_USED==BR_9600)
+                    BRT = 0xD9;                 //设定独立波特率发生器重装值
+                  #elif (BR_USED==BR_115200)
+                    BRT = 0xFD;
+                  #elif (BR_USED==BR_57600)
+                    BRT = 0xF9;
+                  #endif
+                }
+                #elif (HSE_USED==HSE_22MHZ)       
+                {
+                  #if (BR_USED==BR_9600)
+                    BRT = 0xB8;                 //设定独立波特率发生器重装值
+C51 COMPILER V9.56.0.0   UART                                                              04/25/2018 14:47:16 PAGE 2   
+
+                  #elif (BR_USED==BR_115200)
+                    BRT = 0xFA;
+                  #elif (BR_USED==BR_57600)
+                    BRT = 0xF4;
+                  #endif
+                }
+                #endif
+  62   1      
+  63   1      
+  64   1        AUXR |= 0x01;   //串口1选择独立波特率发生器为波特率发生器
+  65   1        AUXR |= 0x10;   //启动独立波特率发生器
+  66   1        
+  67   1        REN  = 1;       //使能接收中断
+  68   1        ES=1;           //使能串口中断  
+  69   1      }
+  70          /************************************************************
+  71                     向串口1发送一个字符
+  72          *************************************************************/
+  73          void UART_SendChar(unsigned char ch)  
+  74          {
+  75   1      //  ES=0;           //串口中断使能
+  76   1      //  TI=0;           //清除发送中断
+  77   1        if(ch=='\n')
+  78   1        {
+  79   2          while(busy);    //Wait for the completion of the previous data is sent
+  80   2          busy = 1;
+  81   2          SBUF='\r';      //Send data to UART buffer
+  82   2          while(busy);
+  83   2          busy = 1;
+  84   2          SBUF=ch;
+  85   2        }
+  86   1        else
+  87   1        {
+  88   2          while(busy);  //Wait for the completion of the previous data is sent
+  89   2          busy = 1;
+  90   2          SBUF=ch;      //Send data to UART buffer
+  91   2        }
+  92   1      //  ES=1;
+  93   1      }
+  94          /************************************************************
+  95            向串口uart发送一个字符串，strlen为该字符串长度
+  96          *************************************************************/
+  97          void UART_SendStr(unsigned char *str)
+  98          {
+  99   1        while(*str!=('\0'))       //Check the end of the string
+ 100   1        {
+ 101   2          UART_SendChar(*str++);  //Send current char and increment string ptr
+ 102   2        }
+ 103   1      }
+ 104          
+ 105          void UART_Printf(const char *fmt,...)
+ 106          {   
+ 107   1        va_list ap;    //This is support the format output 
+ 108   1        char xdata string[100];
+ 109   1        va_start(ap,fmt);
+ 110   1        vsprintf(string,fmt,ap); // Store the string in the String buffer
+ 111   1        UART_SendStr(string);
+ 112   1        va_end(ap);  
+ 113   1      }
+ 114          
+ 115          void USART1_IRQHandler() interrupt 4  
+ 116          {
+C51 COMPILER V9.56.0.0   UART                                                              04/25/2018 14:47:16 PAGE 3   
+
+ 117   1        u8 Res=0; 
+ 118   1        if(RI==1)  
+ 119   1        {
+ 120   2          RI=0;
+ 121   2          Res=SBUF;   
+ 122   2          if((USART_RX_STA&0x8000)==0)                        //接收未完成
+ 123   2          {
+ 124   3            if(USART_RX_STA&0x4000)                             //接收到了0x0d
+ 125   3            {
+ 126   4              if(Res!=0x0a) USART_RX_STA=0;                     //接收错误,重新开始
+ 127   4              else          USART_RX_STA|=0x8000;                       //接收完成了 
+ 128   4            }
+ 129   3            else                                                //还没收到0X0D
+ 130   3            { 
+ 131   4              if(Res==0x0d) USART_RX_STA|=0x4000;
+ 132   4              else
+ 133   4              {
+ 134   5                USART_RX_BUF[USART_RX_STA&0X3FFF]=Res ;
+ 135   5                USART_RX_STA++;
+ 136   5                if(USART_RX_STA>(USART_REC_LEN-1))USART_RX_STA=0;//接收数据错误,重新开始接收    
+ 137   5              }    
+ 138   4            }
+ 139   3          } 
+ 140   2        }
+ 141   1        if (TI)
+ 142   1        {
+ 143   2          TI = 0;             //Clear transmit interrupt flag
+ 144   2          busy = 0;           //Clear transmit busy flag
+ 145   2        }
+ 146   1      }
+ 147          //
+ 148          void PrintNA(void)
+ 149          {
+ 150   1        UART_SendStr("<NA>\n");
+ 151   1      }
+ 152          //
+ 153          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    348    ----
+   CONSTANT SIZE    =      6    ----
+   XDATA SIZE       =     82     149
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

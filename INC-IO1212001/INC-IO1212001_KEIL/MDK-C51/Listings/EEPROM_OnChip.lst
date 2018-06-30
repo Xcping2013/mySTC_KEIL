@@ -1,0 +1,287 @@
+C51 COMPILER V9.56.0.0   EEPROM_ONCHIP                                                     04/25/2018 14:47:16 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE EEPROM_ONCHIP
+OBJECT MODULE PLACED IN .\Objects\EEPROM_OnChip.obj
+COMPILER INVOKED BY: D:\hardware\Keil_v5\C51\BIN\C51.EXE ..\Src\EEPROM_OnChip.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(..
+                    -\Inc;..\User) DEBUG OBJECTEXTEND PRINT(.\Listings\EEPROM_OnChip.lst) TABS(2) OBJECT(.\Objects\EEPROM_OnChip.obj)
+
+line level    source
+
+   1          /**
+   2            \file   EEPROM_OnChip.c
+   3            \author   Xcping2016
+   4            \version  1.00
+   5          
+   6            \brief    
+   7          
+   8            This file contains the major function to write ande read datas with EEPROM On Chip
+   9          */
+  10          #include "main.h"
+  11          #include "intrins.h"
+  12          #include "EEPROM_OnChip.h"
+  13          #include "UART.h"
+  14          #include <string.h>
+  15          #include <stdlib.h>
+  16          
+  17          typedef struct
+  18          {  
+  19            //基本参数        NBytes    Meaning
+  20            u8  hw;         //1       HardWare
+  21            u8  sw;           //1     SoftWare          
+  22            u8  de;         //1     DeviceNum
+  23            u8  fsn[10];      //10    FixtureNum
+  24            //片上内存存储空间
+  25            union           
+  26            {
+  27              float f32;     
+  28              u8 Byte[4];   
+  29            }ROM[100];
+  30          
+  31          }DataItem;
+  32          
+  33          #define DATA_LEN    413
+  34          //#define DATA_LEN    13
+  35          DataItem  DataSave  = { 200,200,1,
+  36          'D',  'I',  'O',  '-',  '0',  '0',  '2',  '-',  '0',  '1',
+  37          //1   2     3       4     5   6     7     8     9     10
+  38          1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
+  39          11, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  40          21, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  41          31, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  42          41, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  43          51, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  44          61, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  45          71, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  46          81, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  47          91, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  48          };
+  49          //DataItem  DataSave  = { 200,200,1,"DIO-002-01"};
+  50          
+  51          static void IapIdle(void);
+  52          static void IapEraseSector(u16 addr);
+  53          static u8   EEPROM_OnChipReadByte(u16 addr);
+  54          static void EEPROM_OnChipWriteByte(u16 addr, u8 dat);
+C51 COMPILER V9.56.0.0   EEPROM_ONCHIP                                                     04/25/2018 14:47:16 PAGE 2   
+
+  55          
+  56          /*----------------------------
+  57          Disable ISP/IAP/EEPROM function
+  58          Make MCU in a safe state
+  59          ----------------------------*/
+  60          static void IapIdle(void)
+  61          {
+  62   1          IAP_CONTR = 0;                  //Close IAP function
+  63   1          IAP_CMD = 0;                    //Clear command to standby
+  64   1          IAP_TRIG = 0;                   //Clear trigger register
+  65   1          IAP_ADDRH = 0x80;               //Data ptr point to non-EEPROM area
+  66   1          IAP_ADDRL = 0;                  //Clear IAP address to prevent misuse
+  67   1      }
+  68          
+  69          
+  70          /*----------------------------
+  71          Read one byte from ISP/IAP/EEPROM area
+  72          Input: addr (ISP/IAP/EEPROM address)
+  73          Output:Flash data
+  74          ----------------------------*/
+  75          static u8 EEPROM_OnChipReadByte(u16 addr)
+  76          {
+  77   1          u8 dat;                       //Data buffer
+  78   1      
+  79   1          IAP_CONTR = ENABLE_IAP;         //Open IAP function, and set wait time
+  80   1          IAP_CMD = CMD_READ;             //Set ISP/IAP/EEPROM READ command
+  81   1          IAP_ADDRL = addr;               //Set ISP/IAP/EEPROM address low
+  82   1          IAP_ADDRH = addr >> 8;          //Set ISP/IAP/EEPROM address high
+  83   1          IAP_TRIG = 0x5a;                //Send trigger command1 (0x5a)
+  84   1          IAP_TRIG = 0xa5;                //Send trigger command2 (0xa5)
+  85   1          _nop_();                        //MCU will hold here until ISP/IAP/EEPROM operation complete
+  86   1          dat = IAP_DATA;                 //Read ISP/IAP/EEPROM data
+  87   1          IapIdle();                      //Close ISP/IAP/EEPROM function
+  88   1      
+  89   1          return dat;                     //Return Flash data
+  90   1      }
+  91          /*----------------------------
+  92          Program one byte to ISP/IAP/EEPROM area
+  93          Input: addr (ISP/IAP/EEPROM address)
+  94                 dat (ISP/IAP/EEPROM data)
+  95          Output:-
+  96          ----------------------------*/
+  97          static void EEPROM_OnChipWriteByte(u16 addr, u8 dat)
+  98          {
+  99   1          IAP_CONTR = ENABLE_IAP;         //Open IAP function, and set wait time
+ 100   1          IAP_CMD = CMD_PROGRAM;          //Set ISP/IAP/EEPROM PROGRAM command
+ 101   1          IAP_ADDRL = addr;               //Set ISP/IAP/EEPROM address low
+ 102   1          IAP_ADDRH = addr >> 8;          //Set ISP/IAP/EEPROM address high
+ 103   1          IAP_DATA = dat;                 //Write ISP/IAP/EEPROM data
+ 104   1          IAP_TRIG = 0x5a;                //Send trigger command1 (0x5a)
+ 105   1          IAP_TRIG = 0xa5;                //Send trigger command2 (0xa5)
+ 106   1          _nop_();                        //MCU will hold here until ISP/IAP/EEPROM operation complete
+ 107   1          IapIdle();
+ 108   1      }
+ 109          /*----------------------------
+ 110          Erase one sector area
+ 111          Input: addr (ISP/IAP/EEPROM address)
+ 112          Output:-
+ 113          ----------------------------*/
+ 114          static void IapEraseSector(u16 addr)
+ 115          {
+ 116   1          IAP_CONTR = ENABLE_IAP;         //Open IAP function, and set wait time
+C51 COMPILER V9.56.0.0   EEPROM_ONCHIP                                                     04/25/2018 14:47:16 PAGE 3   
+
+ 117   1          IAP_CMD = CMD_ERASE;            //Set ISP/IAP/EEPROM ERASE command
+ 118   1          IAP_ADDRL = addr;               //Set ISP/IAP/EEPROM address low
+ 119   1          IAP_ADDRH = addr >> 8;          //Set ISP/IAP/EEPROM address high
+ 120   1          IAP_TRIG = 0x5a;                //Send trigger command1 (0x5a)
+ 121   1          IAP_TRIG = 0xa5;                //Send trigger command2 (0xa5)
+ 122   1          _nop_();                        //MCU will hold here until ISP/IAP/EEPROM operation complete
+ 123   1          IapIdle();
+ 124   1      }
+ 125          //
+ 126          void SaveDatasToEEPROM_OnChip(void)
+ 127          {
+ 128   1        u16 i =0;
+ 129   1        u8 *temp=&DataSave;
+ 130   1        IapEraseSector(0);
+ 131   1        for(i=0;i<DATA_LEN;i++)
+ 132   1        {
+ 133   2          EEPROM_OnChipWriteByte(i,temp[i]);
+ 134   2        }
+ 135   1      }
+ 136          //
+ 137          void ReadDatasFromEEPROM_OnChip(void)
+ 138          {
+ 139   1        u16 i = 0;
+ 140   1        u8 *temp=&DataSave;
+ 141   1        if( EEPROM_OnChipReadByte(0x300)!='Y')  {SaveDatasToEEPROM_OnChip();IapEraseSector(0x300);EEPROM_OnChipWri
+             -teByte(0x300,'Y');}
+ 142   1        
+ 143   1        for(i=0;i<DATA_LEN;i++)
+ 144   1        {
+ 145   2          temp[i] = EEPROM_OnChipReadByte(i);
+ 146   2        }
+ 147   1      }
+ 148          /**  Get the SoftWare version number
+ 149          **        110-1.10
+ 150          **/
+ 151          void PrintSoftVersionFromEEPROM(void)
+ 152          {
+ 153   1        UART_Printf("SW<%01d.%01d%01d>\n",(u16)DataSave.sw/100,(u16)DataSave.sw%100/10,(u16)DataSave.sw%100%10);
+ 154   1      }
+ 155          /**  Save the Hardware version number
+ 156          **        110-1.10
+ 157          **/
+ 158          void WriteSWToEEPROM(u8 SoftWareNum)
+ 159          {
+ 160   1        DataSave.sw=SoftWareNum;
+ 161   1        SaveDatasToEEPROM_OnChip();
+ 162   1        UART_Printf("SW[%01d.%01d%01d]<OK>\n",(u16)SoftWareNum/100,(u16)SoftWareNum%100/10,(u16)SoftWareNum%100%1
+             -0);
+ 163   1      }
+ 164          /**  Get the SoftWare version number
+ 165          **   110-1.10
+ 166          **/
+ 167          void PrintHardVersionFromEEPROM(void)
+ 168          {
+ 169   1        UART_Printf("HW<%01d.%01d%01d>\n",(u16)DataSave.hw/100,(u16)DataSave.hw%100/10,(u16)DataSave.hw%100%10);
+ 170   1      }
+ 171          /**  Save the Hardware version number
+ 172          **        110-1.10
+ 173          **/
+ 174          void WriteHWToEEPROM(u8 HardWareNum)
+ 175          {
+ 176   1        DataSave.hw=HardWareNum;
+C51 COMPILER V9.56.0.0   EEPROM_ONCHIP                                                     04/25/2018 14:47:16 PAGE 4   
+
+ 177   1        SaveDatasToEEPROM_OnChip();
+ 178   1        UART_Printf("HW[%01d.%01d%01d]<OK>\n",(u16)HardWareNum/100,(u16)HardWareNum%100/10,(u16)HardWareNum%100%1
+             -0);
+ 179   1      }
+ 180          /**  Get FSN
+ 181          **        
+ 182          **/
+ 183          void PrintFSNFromEEPROM(void)
+ 184          {
+ 185   1        UART_Printf("FSN<%.10s>\n",DataSave.fsn);
+ 186   1      }
+ 187          /**  Save FSN
+ 188          **        
+ 189          **/
+ 190          void WriteFSNToEEPROM(u8 *Fsn)
+ 191          {
+ 192   1        u8 i;
+ 193   1        u8 *temp=&DataSave.fsn;
+ 194   1        for(i=0;i<10;i++)
+ 195   1        {
+ 196   2          temp[i]=*(Fsn++);
+ 197   2        }
+ 198   1        SaveDatasToEEPROM_OnChip();
+ 199   1        UART_Printf("FSN[%.10s]<OK>\n",DataSave.fsn);
+ 200   1      }
+ 201          //
+ 202          u8 ROM_WriteDatas(u8 *Commands)
+ 203          {
+ 204   1        if( strncmp(Commands,"rom[",4)==0  ) 
+ 205   1        { 
+ 206   2          char *p = NULL;
+ 207   2          char *s = &Commands[4];   
+ 208   2          float DataSet;    
+ 209   2          u8 DataNum=strtol(s, &p, 10); 
+ 210   2          if(*p==']'&& *(p+1)=='[' &&  DataNum>0 && DataNum<=ROM_LENGTH)  
+ 211   2          {
+ 212   3            s=NULL;
+ 213   3            DataSet=strtod(p+2, &s);  
+ 214   3            if(*(s-1)==']'&& *(s)=='\0' )
+ 215   3            {
+ 216   4              DataSave.ROM[DataNum-1].f32=DataSet;
+ 217   4      //        DataSave.ROM[DataNum].Byte[0]=DataSet;
+ 218   4      //        DataSave.ROM[DataNum].Byte[1]=DataSet>>8;
+ 219   4      //        DataSave.ROM[DataNum].Byte[2]=DataSet>>16;
+ 220   4      //        DataSave.ROM[DataNum].Byte[3]=DataSet>>24;
+ 221   4              SaveDatasToEEPROM_OnChip();
+ 222   4              UART_Printf("ROM[%d][%.4f]<OK>\n",(u16)DataNum,DataSave.ROM[DataNum-1].f32); 
+ 223   4              return 1;
+ 224   4            }
+ 225   3          } 
+ 226   2      //    PrintNA();
+ 227   2          return 0;
+ 228   2        } 
+ 229   1        else return 0;
+ 230   1      }
+ 231          //
+ 232          u8 ROM_ReadDatas(u8 *Commands)
+ 233          {
+ 234   1        if( strncmp(Commands,"rom[",4)==0  ) 
+ 235   1        { 
+ 236   2          char *p = NULL;
+ 237   2          char *s = &Commands[4]; 
+C51 COMPILER V9.56.0.0   EEPROM_ONCHIP                                                     04/25/2018 14:47:16 PAGE 5   
+
+ 238   2          u8 DataNum=0;   
+ 239   2          DataNum=(u8)strtol(s, &p, 10);  
+ 240   2          if(*p==']'&& *(p+1)=='\0' && (DataNum>0 && DataNum<=ROM_LENGTH))
+ 241   2          { 
+ 242   3            UART_Printf("ROM[%d]<%.4f>\n",(u16)DataNum,DataSave.ROM[DataNum-1].f32);
+ 243   3            return 1;
+ 244   3          }
+ 245   2          PrintNA();
+ 246   2          return 1;
+ 247   2        } 
+ 248   1        else return 0;  
+ 249   1      }
+ 250          
+ 251          //
+ 252          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1332    ----
+   CONSTANT SIZE    =    151    ----
+   XDATA SIZE       =    413      42
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

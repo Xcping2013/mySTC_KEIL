@@ -1,0 +1,134 @@
+C51 COMPILER V9.56.0.0   UART1                                                             01/02/2018 17:08:57 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE UART1
+OBJECT MODULE PLACED IN .\Objects\Uart1.obj
+COMPILER INVOKED BY: D:\hardware\Keil_v5\C51\BIN\C51.EXE ..\src\Uart1.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(..\inc) DE
+                    -BUG OBJECTEXTEND PRINT(.\Listings\Uart1.lst) TABS(2) OBJECT(.\Objects\Uart1.obj)
+
+line level    source
+
+   1          #include "STC12C5A60S2.h"
+   2          
+   3          #include <string.h>
+   4          #include <stdarg.h>
+   5          #include <stdio.h>  
+   6          
+   7          u8  UART1_Buffer[100];   
+   8          u8  UART1_Count = 0;
+   9          u8  UART1_Flag=0;
+  10          
+  11          bit busy;
+  12          /************************************************************
+  13                     uart1初始化
+  14          *************************************************************/
+  15          void InitUART1(void)    
+  16          {
+  17   1        PCON &= 0x7F;   //波特率不倍速
+  18   1        SCON = 0x50;    //8位数据,可变波特率
+  19   1        AUXR |= 0x04; 
+  20   1        
+  21   1        BRT = 0xFD;
+  22   1      /****************@11.0592MHz*******************************/
+  23   1      //  BRT = 0xDC;   //9600
+  24   1      //  BRT = 0xFA;     //57600
+  25   1      //  BRT = 0xFD;     //115200
+  26   1      /****************@22.1184MHz*******************************/  
+  27   1      //  BRT = 0xF4;     //57600
+  28   1      //  BRT = 0xFA;     //115200
+  29   1        
+  30   1        AUXR |= 0x01;   //独立波特率发生器
+  31   1        AUXR |= 0x10;   
+  32   1        
+  33   1        REN  = 1;
+  34   1        ES=1;           //使能串口中断  
+  35   1      }
+  36          
+  37          /************************************************************
+  38                     向串口1发送一个字符
+  39          *************************************************************/
+  40          void UART1_SendChar(unsigned char ch)  
+  41          {
+  42   1        if(ch=='\n')
+  43   1        {
+  44   2          while(busy);    //Wait for the completion of the previous data is sent
+  45   2          busy = 1;
+  46   2          SBUF='\r';      //Send data to UART buffer
+  47   2          while(busy);
+  48   2          busy = 1;
+  49   2          SBUF=ch;
+  50   2        }
+  51   1        else
+  52   1        {
+  53   2          while(busy);  //Wait for the completion of the previous data is sent
+  54   2          busy = 1;
+C51 COMPILER V9.56.0.0   UART1                                                             01/02/2018 17:08:57 PAGE 2   
+
+  55   2          SBUF=ch;      //Send data to UART buffer
+  56   2        }
+  57   1      }
+  58          /************************************************************
+  59            向串口uart1发送一个字符串，strlen为该字符串长度
+  60          *************************************************************/
+  61          void UART1_SendStr(unsigned char *str)
+  62          {
+  63   1        while(*str!=('\0')) UART1_SendChar(*str++);
+  64   1      }
+  65          
+  66          void UART1_Printf(const char *fmt,...)
+  67          {   
+  68   1        va_list ap;    //This is support the format output 
+  69   1        char xdata string[100];
+  70   1        va_start(ap,fmt);
+  71   1        vsprintf(string,fmt,ap); // Store the string in the String buffer
+  72   1        UART1_SendStr(string);
+  73   1        va_end(ap);  
+  74   1      }
+  75          //连续发送命令只会处理第一条命令
+  76          void UART1Routine() interrupt 4  
+  77          {
+  78   1        u8 RxValue=0; 
+  79   1      
+  80   1        if(RI==1)  
+  81   1        {
+  82   2          RI=0;
+  83   2          RxValue=SBUF;         //读取接收到的数据
+  84   2          
+  85   2          if(RxValue=='\r')     //回到行首 接收结束标志 
+  86   2          {
+  87   3            UART1_Buffer[UART1_Count] ='\0';    
+  88   3            UART1_Flag=1;
+  89   3          }
+  90   2          else if(RxValue=='\n')
+  91   2          {
+  92   3      //      UART1_Buffer[UART1_Count] ='\0';    
+  93   3      //      UART1_Flag=1;     
+  94   3          } 
+  95   2          else
+  96   2          {
+  97   3            if( UART1_Count < (sizeof(UART1_Buffer-1))) UART1_Buffer[UART1_Count++]=RxValue;
+  98   3          }
+  99   2         } 
+ 100   1        if (TI)
+ 101   1        {
+ 102   2          TI = 0;             //Clear transmit interrupt flag
+ 103   2          busy = 0;           //Clear transmit busy flag
+ 104   2        }
+ 105   1      }
+ 106          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    292    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    102     149
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+C51 COMPILER V9.56.0.0   UART1                                                             01/02/2018 17:08:57 PAGE 3   
+
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

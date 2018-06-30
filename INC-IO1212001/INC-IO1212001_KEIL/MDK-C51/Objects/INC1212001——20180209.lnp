@@ -1,0 +1,12 @@
+".\Objects\Main.obj",
+".\Objects\Delay.obj",
+".\Objects\Timer.obj",
+".\Objects\EEPROM_OnChip.obj",
+".\Objects\UART.obj",
+".\Objects\SysControl.obj",
+".\Objects\IO.obj",
+".\Objects\IIC_Soft.obj",
+".\Objects\24CXX.obj",
+".\Objects\Commands.obj" 
+TO ".\Objects\INC1212001！！20180209" 
+PRINT(".\Listings\INC1212001！！20180209.m51") RAMSIZE(256) 

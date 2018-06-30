@@ -1,0 +1,81 @@
+C51 COMPILER V9.56.0.0   MAIN                                                              04/25/2018 14:47:15 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\Main.obj
+COMPILER INVOKED BY: D:\hardware\Keil_v5\C51\BIN\C51.EXE ..\User\Main.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(..\Inc;..\
+                    -User) DEBUG OBJECTEXTEND PRINT(.\Listings\Main.lst) TABS(2) OBJECT(.\Objects\Main.obj)
+
+line level    source
+
+   1          #include "main.h"
+   2          
+   3          #include "IO.h"
+   4          #include "UART.h"
+   5          #include "SysControl.h"
+   6          #include "EEPROM_OnChip.h"
+   7          
+   8          #include <stdio.h>
+   9          #include <string.h>
+  10          
+  11          u8 BoardTestFlag=0;
+  12          u8 IoTestFlag=0;
+  13          
+  14          void main(void)
+  15          { 
+  16   1        SetUpMcu();
+  17   1        ReadDatasFromEEPROM_OnChip();
+  18   1      
+  19   1        UART_SendStr("Fixture Reset OK\n>>"); 
+  20   1        
+  21   1        while(1)
+  22   1        {
+  23   2          CommandCheckAndExe();
+  24   2          
+  25   2          HandleTaskPerMS(350);
+  26   2          
+  27   2          if(BoardTestFlag) { BoardTest();  }
+  28   2          if(IoTestFlag)    HandleDebugTaskPerMS();//IoTest();
+  29   2        }
+  30   1      }
+  31          
+  32          
+  33          /********************************************************************
+  34              //ICTest_AT24C128();
+  35              //CylinderCoolDown();         //空函数，对应项目需要再补充
+  36              //HandleTaskPerMS(1000);    //需要在SetUpMcu中初始化定时器
+  37          ********************************************************************/
+  38          void IoTest(void)
+  39          {
+  40   1        if(INPUT1==0)   OUTPUT1=0; else OUTPUT1=1;
+  41   1        if(INPUT2==0)   OUTPUT2=0; else OUTPUT2=1;
+  42   1        if(INPUT3==0)   OUTPUT3=0; else OUTPUT3=1;
+  43   1        if(INPUT4==0)   OUTPUT4=0; else OUTPUT4=1;
+  44   1        if(INPUT5==0)   OUTPUT5=0; else OUTPUT5=1;
+  45   1        if(INPUT6==0)   OUTPUT6=0; else OUTPUT6=1;
+  46   1        if(INPUT7==0)   OUTPUT7=0; else OUTPUT7=1;
+  47   1        if(INPUT8==0)   OUTPUT8=0; else OUTPUT8=1;
+  48   1        if(INPUT9==0)   OUTPUT9=0; else OUTPUT9=1;
+  49   1        if(INPUT10==0)  OUTPUT10=0; else OUTPUT10=1;
+  50   1        if(INPUT11==0)  OUTPUT11=0; else OUTPUT11=1;
+  51   1        if(INPUT12==0)  OUTPUT12=0; else OUTPUT12=1;
+  52   1        
+  53   1      }
+  54          
+C51 COMPILER V9.56.0.0   MAIN                                                              04/25/2018 14:47:15 PAGE 2   
+
+  55          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    153    ----
+   CONSTANT SIZE    =     20    ----
+   XDATA SIZE       =      2    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

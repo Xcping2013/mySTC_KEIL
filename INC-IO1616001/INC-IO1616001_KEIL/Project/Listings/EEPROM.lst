@@ -1,0 +1,152 @@
+C51 COMPILER V9.56.0.0   EEPROM                                                            04/25/2018 11:16:28 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE EEPROM
+OBJECT MODULE PLACED IN .\Objects\EEPROM.obj
+COMPILER INVOKED BY: D:\hardware\Keil_v5\C51\BIN\C51.EXE ..\src\EEPROM.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(..\inc) D
+                    -EBUG OBJECTEXTEND PRINT(.\Listings\EEPROM.lst) TABS(2) OBJECT(.\Objects\EEPROM.obj)
+
+line level    source
+
+   1          #include "STC12C5A60S2.h"
+   2          #include "intrins.h"
+   3          #include "EEPROM.h"
+   4          
+   5          /*Disable ISP/IAP/EEPROM function,Make MCU in a safe state*/
+   6          void HW_IapIdle(void)
+   7          {
+   8   1        IAP_CONTR=0;      //Close IAP function
+   9   1        IAP_CMD=0;        //Clear command to standby
+  10   1        IAP_TRIG=0;       //Clear trigger register
+  11   1        IAP_ADDRH=0x80;   //Data ptr point to non-EEPROM area
+  12   1        IAP_ADDRL=0;      //Clear IAP address To prevent misuse
+  13   1      }
+  14          
+  15          
+  16          ///*
+  17          //* 函 数 名：Open_IAP
+  18          //* 功能描述：允许ISP/IAP
+  19          //*/
+  20          //void HW_OpenIAP(void)
+  21          //{
+  22          //    IAP_CONTR= 0x80;           //充许ISP/IAP
+  23          //} 
+  24          ///*
+  25          //* 函 数 名：Close_IAP
+  26          //* 功能描述：禁止ISP/IAP
+  27          //*/
+  28          //void HW_CloseIAP(void)
+  29          //{
+  30          //    IAP_CONTR = 0x00;           //禁止ISP/IAP
+  31          //    IAP_ADDRH = 0xFF;
+  32          //    IAP_ADDRL = 0xFF;
+  33          //}
+  34          /*
+  35          * 函 数 名：Read_IAP_Byte
+  36          * 功能描述：从EEPROM指定的单元读取一个字节数据
+  37          */
+  38          unsigned char HW_ReadIAPByte(unsigned int addr)
+  39          {  
+  40   1        unsigned char dat;
+  41   1        IAP_CONTR=ENABLE_IAP;
+  42   1        IAP_CMD = CMD_READ;
+  43   1        IAP_ADDRL = addr;
+  44   1        IAP_ADDRH = addr>>8;
+  45   1        IAP_TRIG = 0x5A;
+  46   1        IAP_TRIG = 0xA5;                     //对IAP_TRIG先写0x5A再写0xA5，ISP/IAP命令才会生效
+  47   1        _nop_();
+  48   1        dat=IAP_DATA;
+  49   1        HW_IapIdle();
+  50   1        return dat;
+  51   1      }
+  52          /*
+  53          * 函 数 名：Write_IAP_Byte
+  54          * 功能描述：把一个字节数据写入EEPROM指定的单元,写入数据前应先擦除扇区
+C51 COMPILER V9.56.0.0   EEPROM                                                            04/25/2018 11:16:28 PAGE 2   
+
+  55          * 输入参数：addr:16bit地址；writeVal:要写入的数据
+  56          * 返 回 值：无
+  57          */
+  58          void HW_WriteIAPByte(unsigned int addr, unsigned char dat)
+  59          {
+  60   1        IAP_CONTR=ENABLE_IAP;
+  61   1        IAP_CMD = CMD_PROGRAM;
+  62   1        IAP_ADDRL = addr;
+  63   1        IAP_ADDRH = addr >>8;
+  64   1        IAP_DATA = dat;
+  65   1        IAP_TRIG = 0x5A;
+  66   1        IAP_TRIG = 0xA5;                     //对IAP_TRIG先写0x5A再写0xA5，ISP/IAP命令才会生效
+  67   1        _nop_();
+  68   1        HW_IapIdle();
+  69   1      }
+  70          /*
+  71          * 函 数 名：Erase_IAP_Sector
+  72          * 功能描述：擦除扇区,没有字节擦除
+  73          * 输入参数：addr：扇区地址,扇区中任意一个字节地址都是该扇区地址
+  74          * 返 回 值：无
+  75          */
+  76          void HW_EraseIAPSector(unsigned int addr)
+  77          { 
+  78   1         IAP_CONTR=ENABLE_IAP;
+  79   1         IAP_CMD = CMD_ERASE;
+  80   1         IAP_ADDRL = addr;
+  81   1         IAP_ADDRH = addr>>8;
+  82   1         IAP_TRIG = 0x5A;
+  83   1         IAP_TRIG = 0xA5;                     //对IAP_TRIG先写0x5A再写0xA5，ISP/IAP命令才会生效
+  84   1         _nop_();
+  85   1         HW_IapIdle();
+  86   1      }
+  87          
+  88          //void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size)
+  89          //{
+  90          //  unsigned char checksum = 0;
+  91          //  for(; size > 0; size--) 
+  92          //  { 
+  93          //    checksum = (checksum << 1) || (checksum >> 7);
+  94          //    checksum += *source;
+  95          //    HW_WriteIAPByte(destination++, *(source++)); 
+  96          //  }
+  97          //  HW_WriteIAPByte(destination, checksum);
+  98          //}
+  99          
+ 100          //int memcpy_from_eeprom_with_checksum(char *destination, unsigned int source, unsigned int size)
+ 101          //{
+ 102          //  unsigned char data checksum = 0;
+ 103          //  for(; size > 0; size--) 
+ 104          //  { 
+ 105          //    data = HW_ReadIAPByte(source++);
+ 106          //    checksum = (checksum << 1) || (checksum >> 7);
+ 107          //    checksum += data;    
+ 108          //    *(destination++) = data; 
+ 109          //  }
+ 110          //  return(checksum == HW_ReadIAPByte(source));
+ 111          //}
+ 112          void EEP_Write(u8 *write,u8 len)
+ 113          {
+ 114   1        u8 i =0;
+ 115   1        for(i=0;i<len;i++)
+ 116   1        HW_WriteIAPByte(i,write[i]);
+C51 COMPILER V9.56.0.0   EEPROM                                                            04/25/2018 11:16:28 PAGE 3   
+
+ 117   1      }
+ 118          
+ 119          void EEP_Read(u8 *read,u8 len)
+ 120          {
+ 121   1        u8 i = 0;
+ 122   1        for(i=0;i<len;i++)
+ 123   1        read[i] = HW_ReadIAPByte(i);
+ 124   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    189    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       7
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

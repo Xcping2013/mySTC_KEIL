@@ -1,0 +1,1 @@
+"..\src\IIC_Soft.c" LARGE OPTIMIZE (8,SPEED) BROWSE INCDIR(..\inc) DEBUG OBJECTEXTEND PRINT(.\Listings\IIC_Soft.lst) TABS (2) OBJECT(.\Objects\IIC_Soft.obj)

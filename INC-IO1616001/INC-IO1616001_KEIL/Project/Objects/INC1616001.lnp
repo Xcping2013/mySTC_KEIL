@@ -1,0 +1,8 @@
+".\Objects\commands.obj",
+".\Objects\Delay.obj",
+".\Objects\EEPROM.obj",
+".\Objects\Uart1.obj",
+".\Objects\X2B_MP.obj",
+".\Objects\IIC_Soft.obj" 
+TO ".\Objects\INC1616001" 
+PRINT(".\Listings\INC1616001.m51") RAMSIZE(256) 
